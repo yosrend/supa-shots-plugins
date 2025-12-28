@@ -14,6 +14,7 @@ export async function generateWithProvider(
     apiKey: string,
     imageData: string,
     shot: ShotConfig,
+    aspectRatio: string,
     customConfig?: { apiUrl: string; model: string }
 ): Promise<string> {
     let provider = PROVIDERS[providerId];
@@ -30,17 +31,17 @@ export async function generateWithProvider(
 
     switch (providerId) {
         case 'gemini':
-            return generateWithGemini(imageData, shot, provider, apiKey);
+            return generateWithGemini(imageData, shot, provider, apiKey, aspectRatio);
         case 'openai':
-            return generateWithOpenAI(imageData, shot, provider, apiKey);
+            return generateWithOpenAI(imageData, shot, provider, apiKey, aspectRatio);
         case 'together':
-            return generateWithTogether(imageData, shot, provider, apiKey);
+            return generateWithTogether(imageData, shot, provider, apiKey, aspectRatio);
         case 'stability':
-            return generateWithStability(imageData, shot, provider, apiKey);
+            return generateWithStability(imageData, shot, provider, apiKey, aspectRatio);
         case 'replicate':
-            return generateWithReplicate(imageData, shot, provider, apiKey);
+            return generateWithReplicate(imageData, shot, provider, apiKey, aspectRatio);
         case 'custom':
-            return generateWithCustom(imageData, shot, provider, apiKey);
+            return generateWithCustom(imageData, shot, provider, apiKey, aspectRatio);
         default:
             throw new Error('Unsupported provider');
     }
@@ -61,20 +62,23 @@ async function generateWithGemini(
     imageData: string,
     shot: ShotConfig,
     provider: ProviderConfig,
-    apiKey: string
+    apiKey: string,
+    aspectRatio: string
 ): Promise<string> {
     // Clean base64 data (remove data:image/...;base64, prefix if present)
     const cleanBase64 = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
     const mimeType = detectMimeType(cleanBase64);
 
-    // Build prompt that references the input image
+    // Build prompt with aspect ratio specification
     const editPrompt = `Using the provided image as the reference subject, ${shot.prompt}
 
 IMPORTANT: 
 - The person/subject in the output MUST be the EXACT same person/subject from the input image
 - Preserve all identifying features: face shape, skin tone, hair color/style, eye color, expressions
 - Only change the camera angle, lighting, and composition as described
-- The output should look like a different photo of the SAME person, not a different person`;
+- The output should look like a different photo of the SAME person, not a different person
+- Generate the image with aspect ratio: ${aspectRatio}
+- DO NOT add borders or padding, output should be pure ${aspectRatio} aspect ratio`;
 
     const response = await fetch(
         `${provider.apiUrl}/models/${provider.model}:generateContent?key=${apiKey}`,
@@ -133,7 +137,8 @@ async function generateWithOpenAI(
     _imageData: string,
     shot: ShotConfig,
     provider: ProviderConfig,
-    apiKey: string
+    apiKey: string,
+    _aspectRatio: string
 ): Promise<string> {
     // DALL-E 3 doesn't support image-to-image editing via this endpoint
     // We'll use the prompt to describe what we want
@@ -178,7 +183,8 @@ async function generateWithTogether(
     _imageData: string,
     shot: ShotConfig,
     provider: ProviderConfig,
-    apiKey: string
+    apiKey: string,
+    _aspectRatio: string
 ): Promise<string> {
     const response = await fetch(`${provider.apiUrl}/images/generations`, {
         method: 'POST',
@@ -220,7 +226,8 @@ async function generateWithStability(
     _imageData: string,
     shot: ShotConfig,
     provider: ProviderConfig,
-    apiKey: string
+    apiKey: string,
+    _aspectRatio: string
 ): Promise<string> {
     const formData = new FormData();
     formData.append('prompt', shot.prompt);
@@ -261,7 +268,8 @@ async function generateWithReplicate(
     _imageData: string,
     shot: ShotConfig,
     provider: ProviderConfig,
-    apiKey: string
+    apiKey: string,
+    _aspectRatio: string
 ): Promise<string> {
     // Start prediction
     const startResponse = await fetch(`${provider.apiUrl}/predictions`, {
@@ -319,7 +327,8 @@ async function generateWithCustom(
     imageData: string,
     shot: ShotConfig,
     provider: ProviderConfig,
-    apiKey: string
+    apiKey: string,
+    _aspectRatio: string
 ): Promise<string> {
     // Try to detect API format and send appropriately
     const cleanBase64 = imageData.replace(/^data:image\/[a-z]+;base64,/, '');

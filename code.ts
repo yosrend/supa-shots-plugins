@@ -59,6 +59,8 @@ const STORAGE_KEYS = [
 
 // Run plugin only in Figma design mode
 if (figma.editorType === 'figma') {
+  console.log('[Supa Shots] Plugin loaded - Version: Simplified Decode v3');
+
   // Show the plugin UI
   figma.showUI(__html__, {
     width: PLUGIN_WIDTH,
@@ -158,6 +160,53 @@ if (figma.editorType === 'figma') {
   handleGetSelection();
 }
 
+// Manual base64 decoder (atob is not available in Figma plugin environment)
+function base64Decode(base64: string): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let str = '';
+
+  // Remove padding
+  base64 = base64.replace(/=+$/, '');
+
+  for (let i = 0; i < base64.length;) {
+    const a = chars.indexOf(base64.charAt(i++));
+    const b = chars.indexOf(base64.charAt(i++));
+    const c = chars.indexOf(base64.charAt(i++));
+    const d = chars.indexOf(base64.charAt(i++));
+
+    const bits = (a << 18) | (b << 12) | (c << 6) | d;
+
+    str += String.fromCharCode((bits >> 16) & 0xFF);
+    if (c !== -1) str += String.fromCharCode((bits >> 8) & 0xFF);
+    if (d !== -1) str += String.fromCharCode(bits & 0xFF);
+  }
+
+  return str;
+}
+
+// Helper to decode base64 to Uint8Array
+function decodeBase64(base64String: string): Uint8Array {
+  try {
+    // Remove data URL prefix if present
+    const cleanBase64 = base64String.replace(/^data:image\/\w+;base64,/, '');
+
+    // Decode using manual decoder (atob not available in Figma)
+    const binaryString = base64Decode(cleanBase64);
+
+    // Convert to Uint8Array
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    return bytes;
+  } catch (error) {
+    console.error('[Supa Shots] Decode error:', error);
+    console.error('[Supa Shots] Data sample:', base64String ? base64String.substring(0, 100) : 'undefined');
+    throw new Error('Failed to decode image data');
+  }
+}
+
 // Get the currently selected image and send to UI
 async function handleGetSelection(): Promise<void> {
   const selection = figma.currentPage.selection;
@@ -235,70 +284,80 @@ async function handleInsertImages(msg: InsertImagesMessage): Promise<void> {
   }
 
   try {
-    const nodes: SceneNode[] = [];
-    const gridSize = 3; // 3x3 grid
+    const gridSize = 3;
     const spacing = 40;
-    const imageSize = 300;
-
-    // Get starting position based on viewport
-    const viewportCenter = figma.viewport.center;
-    const startX = viewportCenter.x - ((gridSize * imageSize + (gridSize - 1) * spacing) / 2);
-    const startY = viewportCenter.y - ((gridSize * imageSize + (gridSize - 1) * spacing) / 2);
+    const itemsPerRow = gridSize;
 
     // Create a frame to group all results
     const frame = figma.createFrame();
     frame.name = 'Supa Shots Results';
-    frame.resize(
-      gridSize * imageSize + (gridSize - 1) * spacing + 40,
-      gridSize * imageSize + (gridSize - 1) * spacing + 80
-    );
-    frame.x = startX - 20;
-    frame.y = startY - 60;
     frame.fills = [{ type: 'SOLID', color: { r: 0.05, g: 0.05, b: 0.05 } }];
     frame.cornerRadius = 16;
+    frame.paddingTop = 80;
+    frame.paddingBottom = 40;
+    frame.paddingLeft = 40;
+    frame.paddingRight = 40;
 
-    // Add title
-    const title = figma.createText();
+    // Load font for title
     await figma.loadFontAsync({ family: 'Inter', style: 'Bold' });
+    const title = figma.createText();
     title.fontName = { family: 'Inter', style: 'Bold' };
     title.characters = 'Supa Shots';
-    title.fontSize = 24;
+    title.fontSize = 28;
     title.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
-    title.x = 20;
-    title.y = 20;
     frame.appendChild(title);
 
+    let currentX = 40;
+    let currentY = 80;
+    let maxRowHeight = 0;
+
     for (let i = 0; i < images.length; i++) {
-      const img = images[i];
-      const row = Math.floor(i / gridSize);
-      const col = i % gridSize;
+      const imgData = images[i];
+      const bytes = decodeBase64(imgData.data);
+      const image = figma.createImage(bytes);
+      const size = await image.getSizeAsync();
 
-      // Create image from base64
-      const imageData = Uint8Array.from(atob(img.data), c => c.charCodeAt(0));
-      const imageHash = figma.createImage(imageData).hash;
+      // Determine dimensions (max 300px width/height while maintaining aspect ratio)
+      const scale = Math.min(300 / size.width, 300 / size.height);
+      const width = size.width * scale;
+      const height = size.height * scale;
 
-      // Create rectangle with image fill
       const rect = figma.createRectangle();
-      rect.name = img.name;
-      rect.resize(imageSize, imageSize);
-      rect.x = 20 + col * (imageSize + spacing);
-      rect.y = 60 + row * (imageSize + spacing);
+      rect.name = imgData.name;
+      rect.resize(width, height);
       rect.cornerRadius = 12;
       rect.fills = [{
         type: 'IMAGE',
-        imageHash: imageHash,
-        scaleMode: 'FILL'
+        imageHash: image.hash,
+        scaleMode: 'FIT' // Use FIT instead of FILL for proper embedding
       }];
 
+      const col = i % itemsPerRow;
+      if (col === 0 && i !== 0) {
+        currentX = 40;
+        currentY += maxRowHeight + spacing;
+        maxRowHeight = 0;
+      }
+
+      rect.x = currentX;
+      rect.y = currentY;
+
       frame.appendChild(rect);
-      nodes.push(rect);
+      currentX += width + spacing;
+      maxRowHeight = Math.max(maxRowHeight, height);
     }
+
+    // Resize frame to fit content
+    frame.resize(
+      Math.max(400, (300 + spacing) * itemsPerRow + 40),
+      currentY + maxRowHeight + 40
+    );
 
     figma.currentPage.appendChild(frame);
     figma.currentPage.selection = [frame];
     figma.viewport.scrollAndZoomIntoView([frame]);
 
-    figma.notify(`✨ Inserted ${images.length} shots!`, { timeout: 3000 });
+    figma.notify(`✨ Inserted ${images.length} shots!`);
 
     figma.ui.postMessage({
       type: 'insert-complete',
@@ -306,43 +365,43 @@ async function handleInsertImages(msg: InsertImagesMessage): Promise<void> {
       count: images.length
     });
   } catch (error) {
-    figma.notify(`Error inserting images: ${error instanceof Error ? error.message : 'Unknown error'}`, { error: true });
-    figma.ui.postMessage({
-      type: 'insert-complete',
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    console.error('[Supa Shots] Insert error:', error);
+    figma.notify(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, { error: true });
   }
 }
 
 // Insert a single image to canvas
 async function handleInsertSingle(msg: { type: string; id: string; name: string; data: string }): Promise<void> {
   try {
-    const imageData = Uint8Array.from(atob(msg.data), c => c.charCodeAt(0));
-    const imageHash = figma.createImage(imageData).hash;
+    const bytes = decodeBase64(msg.data);
+    const image = figma.createImage(bytes);
+    const size = await image.getSizeAsync();
 
     const rect = figma.createRectangle();
     rect.name = `Supa Shot - ${msg.name}`;
-    rect.resize(400, 400);
 
-    // Position at viewport center
+    // Default to max 400px while maintaining aspect ratio
+    const scale = Math.min(400 / size.width, 400 / size.height);
+    rect.resize(size.width * scale, size.height * scale);
+
     const center = figma.viewport.center;
-    rect.x = center.x - 200;
-    rect.y = center.y - 200;
+    rect.x = center.x - rect.width / 2;
+    rect.y = center.y - rect.height / 2;
 
     rect.cornerRadius = 12;
     rect.fills = [{
       type: 'IMAGE',
-      imageHash: imageHash,
-      scaleMode: 'FILL'
+      imageHash: image.hash,
+      scaleMode: 'FIT' // Use FIT for proper embedding
     }];
 
     figma.currentPage.appendChild(rect);
     figma.currentPage.selection = [rect];
     figma.viewport.scrollAndZoomIntoView([rect]);
 
-    figma.notify(`✨ Inserted "${msg.name}"`, { timeout: 2000 });
+    figma.notify(`✨ Inserted "${msg.name}"`);
   } catch (error) {
+    console.error('[Supa Shots] Insert single error:', error);
     figma.notify(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, { error: true });
   }
 }
