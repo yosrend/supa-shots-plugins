@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Supa Shots - Local Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #0a0a0a;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        .device-frame {
+            width: 420px;
+            background: #1e1e1e;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+
+        .device-header {
+            background: #2d2d2d;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid #404040;
+        }
+
+        .device-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .dot-red {
+            background: #ff5f56;
+        }
+
+        .dot-yellow {
+            background: #ffbd2e;
+        }
+
+        .dot-green {
+            background: #27c93f;
+        }
+
+        .device-title {
+            flex: 1;
+            text-align: center;
+            color: #808080;
+            font-size: 12px;
+        }
+
+        iframe {
+            width: 100%;
+            height: 680px;
+            border: none;
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #2d2d2d;
+            border-radius: 8px;
+            padding: 16px;
+            color: white;
+            font-size: 13px;
+            max-width: 280px;
+        }
+
+        .controls h3 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            color: #a855f7;
+        }
+
+        .controls p {
+            margin: 0 0 8px 0;
+            color: #b3b3b3;
+            line-height: 1.5;
+        }
+
+        .controls button {
+            background: #7c3aed;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 8px;
+            width: 100%;
+        }
+
+        .controls button:hover {
+            background: #8b5cf6;
+        }
+
+        .log-area {
+            background: #1e1e1e;
+            border-radius: 6px;
+            padding: 10px;
+            margin-top: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 11px;
+        }
+
+        .log-entry {
+            color: #22c55e;
+            margin-bottom: 4px;
+        }
+
+        .log-entry.error {
+            color: #ef4444;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="device-frame">
+        <div class="device-header">
+            <div class="device-dot dot-red"></div>
+            <div class="device-dot dot-yellow"></div>
+            <div class="device-dot dot-green"></div>
+            <span class="device-title">Supa Shots - Figma Plugin Preview</span>
+        </div>
+        <iframe id="pluginFrame" src="ui.html"></iframe>
+    </div>
+
+    <div class="controls">
+        <h3>🧪 Local Test Controls</h3>
+        <p>Simulasi Figma plugin environment untuk testing UI tanpa load di Figma.</p>
+
+        <button onclick="simulateImageSelection()">📷 Simulate Image Selection</button>
+        <button onclick="simulateNoSelection()">❌ Simulate No Selection</button>
+        <button onclick="clearLocalStorage()">🗑️ Clear Saved Settings</button>
+
+        <div class="log-area" id="logArea">
+            <div class="log-entry">Ready for testing...</div>
+        </div>
+    </div>
+
+    <script>
+        const iframe = document.getElementById('pluginFrame');
+        const logArea = document.getElementById('logArea');
+
+        function log(message, isError = false) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry' + (isError ? ' error' : '');
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logArea.appendChild(entry);
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        // Listen for messages from plugin UI
+        window.addEventListener('message', (event) => {
+            const msg = event.data?.pluginMessage;
+            if (!msg) return;
+
+            log(`Plugin message: ${msg.type}`);
+
+            switch (msg.type) {
+                case 'get-selection':
+                    // Auto-respond with simulated selection
+                    log('Received get-selection request');
+                    break;
+
+                case 'insert-images':
+                    log(`Insert ${msg.images?.length || 0} images to canvas`);
+                    // Simulate successful insert
+                    setTimeout(() => {
+                        iframe.contentWindow.postMessage({
+                            pluginMessage: {
+                                type: 'insert-complete',
+                                success: true,
+                                count: msg.images?.length || 0
+                            }
+                        }, '*');
+                        log('Insert complete!');
+                    }, 500);
+                    break;
+
+                case 'notify':
+                    log(`Notification: ${msg.message}`);
+                    break;
+
+                case 'close':
+                    log('Plugin requested close');
+                    break;
+            }
+        });
+
+        // Sample test image (small 100x100 purple gradient)
+        const SAMPLE_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAIAAAD/gAIDAAAACXBIWXMAAAsTAAALEwEAmpwYAAAE8UlEQVR4nO2cW3LbMAxFr9JN1Avop3ZR3UQ30U10E91EF9FFhEz8APGgJCd2HM/cGY9tiRR4CIAkKBER/E94OLsD/x0gVghghQBWCGCFAFYIYIUAVghghQBWCGCFAFYIYIUAVghghQBWCGCFAFYIYIUAVghghQBWCGCFAFYIYIUAVghghQBWCGCFAFYIcGOF9F8dLz+vjZfGxl9dPCg/rw6Xn9fGyy/Ly89ro/Sq+LLX0ij9c+nlV8XL76vD5efVwfJL2eVXxcuvq8PlsVfFy+9ro/Ty29JoedvqePl9dbz8sjJefim7/L46XH5dHS6/Lw+Xn8sufVseL7+ujZdfVsfLL8vD5efl8fJ42fJY+Xl1vPyyNl5+XR0vv6wMl5/Khsuvq8Pll9Xh8vvycPm5bPl1dbw8Xhovu6wOl1/XxsuvK+Pll7Lht9Xh8svacPl1Zbj8UjZcfl0dLr+sDJefy4bfVofL47Xx8nhZ+XV1vPyyNlx+XR0uv6wMl5/Lhl9Xh8vjtfHyeNnyy8pw+XlsvPy2Nlx+WR0uv5Qd/lo2XH4pGy6/rg6XX1aHy+9lw+Xx2njZ5XicNl5+XRkvv5Yd/lo2XB6vjZfHZcuvq8Pl8dp42fLr6nD5dXW4/Fw2/LY6XH4pGy6/rg6XX1aHy+9lw+Xx2njZ5Xy4PF4bL7+sjJdfyobLr6vD5ZfV4fJ72XB5vDZedjkfLo/XxssvK8Pl57Lh99Xh8uvKcPm5bPh9dbj8sjZcflkZLj+XDb+tDpfHa+PlcVn4bXW4/LI6XH4uG35bHS6P18bL47Li59Xh8svacPl1Zbj8XDb8tjpcHq+Nl8dl4bfV4fLL6nD5uWz4bXW4PF4bL4/L4m+rw+WRXw4vj5fGy+Nl8XhtvDxeFn5bHS6/rA6Xn8uG31aHy+O18fK4LPy2Olx+WR0uP5cNv60Ol8dr4+VxWfhtdbj8sjpcfi4bvq4Ol19WhsvPZcNvq8Pl8dp4eVwWflsdLr+sDpefyi5/WR0uj9fGy+Oy8NvqcPlldbj8VHb5y+pwebw2Xh6XhZ9Xh8svK8Plp7LLX1eHy+O18fK4LPy8Olx+WRkuP5Vd/ro6XB6vjZfHZeHn1eHyeG28/FJ2+evqcHm8Nl4el4WfV4fL47Xx8kvZ5a+rw+Xx2nh5XBZ+Xh0uj9fGy09ll7+uDpfHa+PlcVn4eXW4PF4bLz+VXf66OlweL42Xx2Xh59Xh8nhtvPxUdvnr6nB5vDReHpeFn1eHy+O18fJT2eWvq8Pl8dJ4eVwWfl4dLo+Xxs9ll7+uDpfH6+NH4/LwU9nlr6vD5fH6+NG4PPxcdvnL6nB5vLR+NC4PP5Vd/rI6XB4vrR+Ny8PPZZe/rA6Xx0vrR+Py8HPZ5S+rw+Xx0vrRuDz8VHb5y+pwebw0Xh6Xhcfl4fLb6nD5ZWW4/FR2+XVluDxeGi+Py8Lj8nB5vDReHpeFx+Xh8nhpvDwuC4/Lw+Xx0nh5XBYel4fL46Xx8rgsPH4bLo/XxsvjsvD4bbg8Xhovj8vC47fh8nhpvDwuC4/fhsvjpfHyuCz8z3B5vDReHpeFx2/D5fHSeHlcFh6XhcvjtfHyy8pw+WVluPyyOlx+Xh0uvy8Pl99Xh8uvK8Pl8cLbcHm8NH40Xi6M/gJrxnJxTOBdFgAAAABJRU5ErkJggg==';
+
+        function simulateImageSelection() {
+            log('Simulating image selection...');
+            iframe.contentWindow.postMessage({
+                pluginMessage: {
+                    type: 'selection-update',
+                    hasSelection: true,
+                    imageData: SAMPLE_IMAGE,
+                    imageName: 'Test Image',
+                    imageWidth: 100,
+                    imageHeight: 100
+                }
+            }, '*');
+        }
+
+        function simulateNoSelection() {
+            log('Simulating no selection...');
+            iframe.contentWindow.postMessage({
+                pluginMessage: {
+                    type: 'selection-update',
+                    hasSelection: false,
+                    error: 'No image selected on canvas'
+                }
+            }, '*');
+        }
+
+        function clearLocalStorage() {
+            localStorage.clear();
+            log('Local storage cleared. Reload to see changes.');
+        }
+
+        // Initial message
+        log('Local test environment ready');
+        log('Use controls to simulate Figma interactions');
+    </script>
+</body>
+
+</html>

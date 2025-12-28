@@ -1,0 +1,26 @@
+{
+  "name": "Supa Shots",
+  "id": "1582989194736814982",
+  "api": "1.0.0",
+  "main": "code.js",
+  "capabilities": [],
+  "enableProposedApi": false,
+  "documentAccess": "dynamic-page",
+  "editorType": [
+    "figma"
+  ],
+  "ui": "ui.html",
+  "networkAccess": {
+    "allowedDomains": [
+      "http://localhost:3000",
+      "https://generativelanguage.googleapis.com",
+      "https://api.openai.com",
+      "https://openrouter.ai",
+      "https://api.x.ai",
+      "https://api.together.xyz",
+      "https://api.stability.ai",
+      "https://api.replicate.com"
+    ],
+    "reasoning": "Required to access backend API and multiple AI APIs (Gemini, OpenAI, OpenRouter, Grok, Together, Stability, Replicate) for image generation"
+  }
+}

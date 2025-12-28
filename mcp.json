@@ -1,0 +1,76 @@
+{
+    "mcpServers": {
+        "chrome-devtools": {
+            "command": "npx",
+            "args": [
+                "chrome-devtools-mcp@latest"
+            ],
+            "enabled": true,
+            "description": "Chrome DevTools MCP — https://goo.gle/4pDE6Tk"
+        },
+        "exa": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "exa-mcp-server",
+                "--tools=get_code_context_exa,web_search_exa"
+            ],
+            "enabled": true,
+            "description": "EXA MCP — https://docs.exa.ai/reference/exa-mcp"
+        },
+        "context7": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@upstash/context7-mcp"
+            ],
+            "enabled": true,
+            "description": "Context7 MCP — https://github.com/upstash/context7"
+        },
+        "playwright": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@playwright/mcp"
+            ],
+            "enabled": true,
+            "description": "Playwright MCP — https://playwright.dev/agents"
+        },
+        "ref": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "ref-tools-mcp"
+            ],
+            "enabled": true,
+            "description": "Ref MCP — https://ref.tools"
+        },
+        "shadcn": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "shadcn-mcp"
+            ],
+            "enabled": true,
+            "description": "Shadcn MCP — https://ui.shadcn.com/docs/mcp"
+        },
+        "sequential-thinking": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "sequential-thinking-mcp"
+            ],
+            "enabled": true,
+            "description": "SequentialThinking MCP — https://github.com/modelcontextprotocol/agents"
+        },
+        "supabase": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@supabase-community/supabase-mcp"
+            ],
+            "enabled": true,
+            "description": "Supabase MCP — https://supabase.com/docs/guides/getting-started"
+        }
+    }
+}
