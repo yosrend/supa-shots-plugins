@@ -149,7 +149,5 @@ Click "New Generate" button to clear all results and start over.
 
 ### Creator
 **Yosep Rendi**
-Let's connect :
-github : https://github.com/yosrend
-x : https://x.com/yoseprendi
+Let's connect :  x.com/yoseprendi
 
