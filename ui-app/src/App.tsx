@@ -507,6 +507,13 @@ function App() {
           </Card>
         )}
 
+        {/* Credits Footer - Show only on Step 1 */}
+        {(!apiValidated || showApiEdit) && (
+          <div className="text-[11px] text-muted-foreground/50 text-center py-1">
+            Created by <a href="https://x.com/yoseprendi" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">Yosep Rendi</a>
+          </div>
+        )}
+
         {/* Main Generation Area */}
         {apiValidated && !showApiEdit && (
           <>
@@ -773,10 +780,7 @@ function App() {
       50% { top: calc(100% - 4px); }
     }
     `}</style>
-        {/* Credits Footer */}
-        <div className="text-[11px] text-muted-foreground/50 text-center py-1">
-          Created by <a href="https://x.com/yoseprendi" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">Yosep Rendi</a>
-        </div>
+
       </div>
 
       {/* Right Panel - Results Sidebar (Always visible from step 2) */}
