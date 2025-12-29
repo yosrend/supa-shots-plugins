@@ -15,10 +15,11 @@ import { PROVIDERS, providers, validateApiKey } from '@/lib/providers';
 import { getShots, type ShotConfig } from '@/lib/shots';
 import { generateWithProvider, type GenerationResult } from '@/lib/api';
 import { storage } from '@/lib/storage';
+import confetti from 'canvas-confetti';
 import {
   Zap, User, Package, Check, ClipboardPaste,
-  RefreshCw, Pencil, Copy, CheckSquare, Square, Info,
-  Upload, Loader2, CheckCircle, X, Edit
+  RefreshCw, Pencil,
+  Upload, Loader2, CheckCircle, X, Edit, Plus, Sparkles, Eye, ZoomIn, ZoomOut
 } from 'lucide-react';
 
 type Mode = 'human' | 'product';
@@ -95,6 +96,12 @@ function App() {
     result: null,
     prompt: ''
   });
+  const [previewModal, setPreviewModal] = useState<{ open: boolean; imageData: string | null; name: string }>({
+    open: false,
+    imageData: null,
+    name: ''
+  });
+  const [zoomLevel, setZoomLevel] = useState(100);
 
   useEffect(() => {
     // Restore previous session state
@@ -115,7 +122,7 @@ function App() {
 
         // Resize to show results panel if we have results
         if (parsedResults.length > 0) {
-          parent.postMessage({ pluginMessage: { type: 'resize', width: 800, height: 600 } }, '*');
+          parent.postMessage({ pluginMessage: { type: 'resize', width: 800, height: 800 } }, '*');
         }
       }
     } catch (e) {
@@ -137,10 +144,10 @@ function App() {
   useEffect(() => {
     if (apiValidated) {
       // Expand to 800px once API is validated (step 2 onwards)
-      parent.postMessage({ pluginMessage: { type: 'resize', width: 800, height: 600 } }, '*');
+      parent.postMessage({ pluginMessage: { type: 'resize', width: 800, height: 800 } }, '*');
     } else {
       // Step 1: Compact view
-      parent.postMessage({ pluginMessage: { type: 'resize', width: 320, height: 600 } }, '*');
+      parent.postMessage({ pluginMessage: { type: 'resize', width: 320, height: 800 } }, '*');
     }
   }, [apiValidated]);
 
@@ -238,49 +245,24 @@ function App() {
     reader.readAsDataURL(file);
   };
 
-  const handlePaste = async () => {
-    try {
-      const items = await navigator.clipboard.read();
-      for (const item of items) {
-        if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
-          const blob = await item.getType(item.types.find(t => t.startsWith('image/'))!);
-          const reader = new FileReader();
-          reader.onload = (ev) => {
-            setIsScanning(true);
-            const img = new Image();
-            img.onload = () => {
-              setTimeout(() => {
-                setSelection({
-                  hasImage: true,
-                  imageData: ev.target?.result as string,
-                  imageName: 'Pasted Image',
-                  imageWidth: img.width,
-                  imageHeight: img.height,
-                });
-                setIsScanning(false);
-              }, 1500);
-            };
-            img.src = ev.target?.result as string;
-          };
-          reader.readAsDataURL(blob);
-          break;
-        }
-      }
-    } catch (err) {
-      console.error('Paste failed:', err);
-    }
-  };
-
   const handleGenerate = async () => {
     if (!selection.hasImage || !selection.imageData || !apiKey || !apiValidated) return;
 
     setIsGenerating(true);
-    setResults([]);
 
     const shots = getShots(mode);
-    const newResults: ResultWithSelection[] = [];
-    // Provider config for future use
-    // const providerConfig = PROVIDERS[provider];
+
+    // Pre-create 9 thumbnail slots with loading state
+    const initialResults: ResultWithSelection[] = shots.map(shot => ({
+      id: shot.id,
+      name: shot.name,
+      data: null,
+      success: false,
+      error: undefined,
+      selected: true, // Default checked
+      shot
+    }));
+    setResults(initialResults);
 
     for (let i = 0; i < shots.length; i++) {
       const shot = shots[i];
@@ -288,41 +270,47 @@ function App() {
 
       // const startTime = Date.now();
       // let success = false;
-      let errorMsg: string | undefined;
-      let imageData: string | null = null;
+
 
       try {
-        imageData = await generateWithProvider(
+        const imageData = await generateWithProvider(
           provider,
           apiKey,
-          selection.imageData,
+          selection.imageData!,
           shot,
           aspectRatio,
           provider === 'custom' ? { apiUrl: customApiUrl, model: customModel } : undefined
         );
-        // success = true;
-        newResults.push({
-          id: shot.id,
-          name: shot.name,
+
+        // Update the specific slot in initialResults
+        initialResults[i] = {
+          ...initialResults[i],
           data: imageData,
           success: true,
-          selected: true,
-          shot
-        });
+          error: undefined
+        };
       } catch (error) {
-        errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        newResults.push({
-          id: shot.id,
-          name: shot.name,
-          data: null,
-          success: false,
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        // Update the slot with error
+        initialResults[i] = {
+          ...initialResults[i],
           error: errorMsg,
-          selected: false,
-          shot
-        });
+          success: false
+        };
       }
 
-      setResults([...newResults]);
+      // Update results incrementally to show progress
+      setResults([...initialResults]);
+    }
+
+    // Trigger confetti if all successful
+    const allSuccess = initialResults.every(r => r.success);
+    if (allSuccess) {
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
     }
 
     setIsGenerating(false);
@@ -387,34 +375,14 @@ function App() {
     setResults([...updatedResults]);
   };
 
-  const toggleResultSelection = (id: string) => {
-    setResults(prev => prev.map(r => r.id === id ? { ...r, selected: !r.selected } : r));
-  };
 
-  const handleCopyToCanvas = (result: ResultWithSelection) => {
-    if (!result.data) return;
-    parent.postMessage({
-      pluginMessage: {
-        type: 'insert-images',
-        images: [{ id: result.id, name: result.name, data: result.data }]
-      }
-    }, '*');
-  };
 
-  const handleCopyAllToCanvas = () => {
-    const selected = results.filter(r => r.success && r.selected && r.data);
-    if (selected.length === 0) return;
 
-    parent.postMessage({
-      pluginMessage: {
-        type: 'insert-images',
-        images: selected.map(r => ({ id: r.id, name: r.name, data: r.data }))
-      }
-    }, '*');
-  };
+
+
 
   const currentProvider = PROVIDERS[provider];
-  const selectedCount = results.filter(r => r.success && r.selected).length;
+
   const canGenerate = apiValidated && selection.hasImage && !isGenerating;
 
   return (
@@ -562,7 +530,8 @@ function App() {
                     <img
                       src={selection.imageData}
                       alt="Preview"
-                      className="w-full h-32 object-contain rounded-lg bg-secondary"
+                      className="w-full max-h-[300px] object-contain rounded-lg bg-black"
+                      style={{ height: 'auto' }}
                     />
                     <button
                       onClick={() => setSelection({ hasImage: false, imageData: null, imageName: '', imageWidth: 0, imageHeight: 0 })}
@@ -585,10 +554,7 @@ function App() {
                     className="h-32 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary hover:bg-primary/5 transition-all"
                   >
                     <Upload className="w-8 h-8 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Click to Upload</span>
-                    <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handlePaste(); }}>
-                      <ClipboardPaste className="w-4 h-4 mr-2" /> Paste Image
-                    </Button>
+                    <span className="text-sm text-muted-foreground">Click to Upload Image</span>
                   </div>
                 )}
                 <input
@@ -713,108 +679,7 @@ function App() {
           </Card>
         )}
 
-        {/* Results Grid */}
-        {results.length > 0 && (
-          <Card className="border-2 border-primary">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setResults([])}
-                    className="h-7 text-xs"
-                  >
-                    ← Back
-                  </Button>
-                  <Label className="text-sm font-medium">Generated Images ({results.filter(r => r.success).length}/{results.length})</Label>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setResults(prev => prev.map(r => ({ ...r, selected: !results.every(r => r.selected) })))}
-                  className="h-6 text-xs"
-                >
-                  {results.every(r => r.selected) ? 'Deselect All' : 'Select All'}
-                </Button>
-              </div>
 
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                {results.map((result) => (
-                  <div key={result.id} className="relative group aspect-square rounded-lg overflow-hidden border border-border bg-secondary">
-                    {result.success && result.data ? (
-                      <>
-                        <img src={`data: image / png; base64, ${result.data} `} alt={result.name} className="w-full h-full object-cover" />
-
-                        <button
-                          onClick={() => toggleResultSelection(result.id)}
-                          className="absolute top-1 left-1 w-5 h-5 rounded bg-background/80 flex items-center justify-center"
-                        >
-                          {result.selected ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4 text-muted-foreground" />}
-                        </button>
-
-                        <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-1.5">
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleEditPrompt(result)}
-                              className="w-6 h-6 rounded bg-background/90 flex items-center justify-center hover:bg-background"
-                              title="Edit Prompt"
-                            >
-                              <Pencil className="w-3 h-3" />
-                            </button>
-                            <button
-                              onClick={() => handleRegenerate(result)}
-                              className="w-6 h-6 rounded bg-background/90 flex items-center justify-center hover:bg-background"
-                              title="Regenerate"
-                            >
-                              <RefreshCw className="w-3 h-3" />
-                            </button>
-                            <button
-                              className="w-6 h-6 rounded bg-background/90 flex items-center justify-center hover:bg-background"
-                              title={result.name}
-                            >
-                              <Info className="w-3 h-3" />
-                            </button>
-                          </div>
-
-                          <div className="text-center">
-                            <span className="text-[10px] text-white font-medium">{result.name}</span>
-                          </div>
-
-                          <button
-                            onClick={() => handleCopyToCanvas(result)}
-                            className="w-full py-1 rounded bg-primary text-primary-foreground text-[10px] font-medium hover:bg-primary/90"
-                          >
-                            <Copy className="w-3 h-3 inline mr-1" /> Add to Canvas
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-destructive">
-                        {result.error === 'Regenerating...' || result.error === 'Generating...' ? (
-                          <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                        ) : (
-                          <span className="text-[10px] text-center px-1">❌ {result.error}</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleCopyAllToCanvas}
-                  disabled={selectedCount === 0}
-                  className="flex-1"
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copy Selected to Canvas ({selectedCount})
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Edit Prompt Modal */}
         {editPromptModal.open && (
@@ -840,6 +705,68 @@ function App() {
           </div>
         )}
 
+        {/* Preview Modal with Zoom */}
+        {previewModal.open && previewModal.imageData && (
+          <div
+            className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50"
+            onClick={() => {
+              setPreviewModal({ open: false, imageData: null, name: '' });
+              setZoomLevel(100);
+            }}
+          >
+            <div className="relative max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+              {/* Header */}
+              <div className="absolute top-0 left-0 right-0 bg-black/80 p-4 flex items-center justify-between z-10">
+                <h3 className="text-white font-semibold">{previewModal.name}</h3>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setZoomLevel(Math.max(50, zoomLevel - 25))}
+                    className="text-white hover:bg-white/20"
+                  >
+                    <ZoomOut className="w-4 h-4" />
+                  </Button>
+                  <span className="text-white text-sm min-w-[60px] text-center">{zoomLevel}%</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setZoomLevel(Math.min(200, zoomLevel + 25))}
+                    className="text-white hover:bg-white/20"
+                  >
+                    <ZoomIn className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setPreviewModal({ open: false, imageData: null, name: '' });
+                      setZoomLevel(100);
+                    }}
+                    className="text-white hover:bg-white/20"
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Image */}
+              <div className="overflow-auto max-h-[90vh] mt-16">
+                <img
+                  src={previewModal.imageData.startsWith('data:') ? previewModal.imageData : `data:image/png;base64,${previewModal.imageData}`}
+                  alt={previewModal.name}
+                  style={{
+                    transform: `scale(${zoomLevel / 100})`,
+                    transformOrigin: 'center',
+                    transition: 'transform 0.2s ease-in-out'
+                  }}
+                  className="max-w-full h-auto"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         <style>{`
     @keyframes scan {
       0%, 100% { top: 0; }
@@ -854,12 +781,12 @@ function App() {
 
       {/* Right Panel - Results Sidebar (Always visible from step 2) */}
       {apiValidated && (
-        <div className="flex-1 h-screen bg-yellow-50 dark:bg-yellow-900/20 p-6 flex flex-col overflow-hidden">
+        <div className="flex-1 h-screen bg-yellow-50 dark:bg-yellow-900/20 p-6 pb-20 flex flex-col overflow-hidden">
           {results.length === 0 ? (
             // Placeholder state
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center text-muted-foreground space-y-2">
-                <div className="text-6xl mb-4">🎨</div>
+                <h2 className="text-4xl font-bold mb-4">Supa Shots</h2>
                 <h3 className="text-lg font-semibold">Ready to Generate</h3>
                 <p className="text-sm">Your generated shots will appear here in a 3×3 grid</p>
                 <p className="text-xs mt-4">No scrolling needed!</p>
@@ -869,16 +796,28 @@ function App() {
             // Results view
             <>
               <div className="mb-4 flex items-center justify-between flex-shrink-0">
-                <h3 className="text-lg font-semibold">Generated Shots ({results.filter(r => r.success).length}/{results.length})</h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setResults([]);
+                    setSelection({ hasImage: false, imageData: null, imageName: '', imageWidth: 0, imageHeight: 0 });
+                    storage.removeItem('last_results');
+                    storage.removeItem('last_selection');
+                  }}
+                >
+                  <Sparkles className="w-4 h-4 mr-1" /> New Generate
+                </Button>
+
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setResults([]);
-                    storage.removeItem('last_results');
+                    const allSelected = results.every(r => r.selected);
+                    setResults(results.map(r => ({ ...r, selected: !allSelected })));
                   }}
                 >
-                  Clear All
+                  {results.every(r => r.selected) ? 'Deselect All' : 'Select All'}
                 </Button>
               </div>
 
@@ -894,7 +833,9 @@ function App() {
                             className="w-full h-full object-cover"
                             style={{ borderRadius: 0 }}
                           />
-                          <div className="absolute top-2 left-2">
+
+                          {/* Checkbox */}
+                          <div className="absolute top-2 left-2 z-10">
                             <input
                               type="checkbox"
                               checked={result.selected}
@@ -907,14 +848,60 @@ function App() {
                               className="w-4 h-4"
                             />
                           </div>
+
+                          {/* Hover Overlay with Actions */}
+                          <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => setPreviewModal({ open: true, imageData: result.data, name: result.name })}
+                              className="w-8 h-8 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors"
+                              title="Preview"
+                            >
+                              <Eye className="w-5 h-5 text-white" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                parent.postMessage({
+                                  pluginMessage: {
+                                    type: 'insert-single',
+                                    id: result.id,
+                                    name: result.name,
+                                    data: result.data
+                                  }
+                                }, '*');
+                              }}
+                              className="w-8 h-8 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors"
+                              title="Insert to Canvas"
+                            >
+                              <Plus className="w-5 h-5 text-white" />
+                            </button>
+                            <button
+                              onClick={() => handleRegenerate(result)}
+                              className="w-8 h-8 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors"
+                              title="Regenerate"
+                            >
+                              <RefreshCw className="w-5 h-5 text-white" />
+                            </button>
+                            <button
+                              onClick={() => handleEditPrompt(result)}
+                              className="w-8 h-8 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors"
+                              title="Edit Prompt"
+                            >
+                              <Pencil className="w-5 h-5 text-white" />
+                            </button>
+                          </div>
                         </div>
                         <div className="text-xs text-muted-foreground truncate">{result.name}</div>
                       </div>
-                    ) : (
+                    ) : result.error ? (
                       <div className="aspect-square bg-destructive/10 border border-destructive/20 flex items-center justify-center">
                         <div className="text-xs text-destructive text-center p-2">
-                          {result.error || 'Failed'}
+                          {result.error}
                         </div>
+                      </div>
+                    ) : (
+                      // Loading state
+                      <div className="aspect-square bg-secondary/30 border-2 border-dashed border-muted flex items-center justify-center">
+                        <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
                       </div>
                     )}
                   </div>

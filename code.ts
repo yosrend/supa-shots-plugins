@@ -1,5 +1,5 @@
 const PLUGIN_WIDTH = 320;
-const PLUGIN_HEIGHT = 600;
+const PLUGIN_HEIGHT = 800;
 
 // Message types for UI communication
 interface PluginMessage {

@@ -2,7 +2,7 @@
 
 Transform your images into professional shots with AI. Generate multiple variations, angles, and styles directly in Figma.
 
-![Version](https://img.shields.io/badge/version-2.0-blue)
+![Version](https://img.shields.io/badge/version-2.3-blue)
 ![Figma](https://img.shields.io/badge/Figma-Plugin-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
@@ -45,6 +45,16 @@ Transform your images into professional shots with AI. Generate multiple variati
 - Left panel: Scrollable form
 - Right panel: Fixed 3×3 grid (no scroll!)
 - Yellow placeholder before generation
+
+### 🔍 Advanced Image Controls (NEW in v2.3)
+- **Preview Modal:** Full-screen image preview with zoom controls
+  - Click eye icon on any thumbnail
+  - Zoom range: 50%-200%
+  - Keyboard shortcuts supported
+- **Regenerate:** Re-generate individual shots
+- **Edit Prompt:** Customize prompts for specific variations
+- **Batch Selection:** Select All / Deselect All buttons
+- **Individual Actions:** Insert, regenerate, or preview any shot
 
 ---
 
@@ -328,35 +338,6 @@ MIT License - feel free to use in your own projects!
 
 ## 🙋 Support & Contact
 
-**Created by:** [Yosep Rendi](https://x.com/yoseprendi)
-
-**Issues?** Open an issue on GitHub or contact via Twitter/X
-
-**Questions?** Check the [walkthrough document](./walkthrough.md) for detailed technical info
-
----
-
-## 🎉 Changelog
-
-### v2.0 (2025-12-28)
-- ✨ Added split-view interface (800px)
-- ✨ State persistence across sessions
-- ✨ Yellow placeholder panel
-- 🐛 Fixed base64 decoding (manual decoder)
-- 🐛 Fixed aspect ratio application
-- 🐛 Fixed cross-project image embedding
-- 🐛 Fixed UTF-8 character encoding
-- 🐛 Fixed icon alignment issues
-- 🎨 Improved UI/UX with better layout
-
-### v1.0 (Initial Release)
-- 🎯 Multi-provider AI support
-- 🎯 Human & Product modes
-- 🎯 Batch generation
-- 🎯 Basic canvas integration
-
----
-
-**⭐ If you find this plugin useful, please star the repo!**
-
-**📢 Share your creations with #SupaShots**
+### 👨‍💻 Creator
+**Yosep Rendi**
+- 🐦 Twitter/X: [@yoseprendi](https://x.com/yoseprendi)
