@@ -1,4 +1,4 @@
-# 🎨 Supa Shots - AI-Powered Image Generator for Figma
+# ⚡️Supa Shots - AI-Powered Image Generator for Figma
 
 Transform your images into professional shots with AI. Generate multiple variations, angles, and styles directly in Figma.
 
